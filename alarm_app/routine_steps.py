@@ -493,7 +493,7 @@ class QuoteFetcher(RoutineStep):
     def execute(self) -> bool:
         try:
             intro = self.config.get("intro_text", "Your quote of the day is")
-            message = f"{intro}: {self.quote}"
+            message = f"{intro}: {self.quote.text} - {self.quote.author}"
 
             # Speak the quote
             self._speak_text(message)
