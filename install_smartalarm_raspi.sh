@@ -5,7 +5,7 @@
 set -e  # Exit on any error
 
 # Configuration variables
-INSTALL_DIR="/opt/kiosk-display"
+INSTALL_DIR="/opt/smartalarm_web"
 SERVICE_NAME="smartalarm_web"
 GROUP=$USER
 
@@ -76,7 +76,7 @@ setup_python_env() {
     cd "$INSTALL_DIR"
     python3 -m venv .venv
     source .venv/bin/activate
-    pip install django django_q2 feedparser requests google-images-downloader gunicorn
+    pip install croniter django django_q2 feedparser requests google-images-downloader gunicorn whitenoise
     log_success "Python environment configured"
 }
 
@@ -85,43 +85,75 @@ copy_project_files() {
     log_info "Copying project files..."
     
     # Prompt user for source directory
-    echo -n "Enter the path to your kiosk display project files (or press Enter for current directory): "
+    echo -n "Enter the path to your project files (or press Enter for current directory): "
     read source_dir
     
     if [ -z "$source_dir" ]; then
         source_dir="."
     fi
     
-    # Copy files
-    cp "$source_dir/*.py" "$INSTALL_DIR/"
-    
-    # Copy static and templates directories if they exist
-    if [ -d "$source_dir/alarm_app" ]; then
-        cp -r "$source_dir/alarm_app" "$INSTALL_DIR/"
-    fi
-    
-    if [ -d "$source_dir/config" ]; then
-        cp -r "$source_dir/config" "$INSTALL_DIR/"
-    fi
-    
-    # Create data directory
-    mkdir -p "$INSTALL_DIR/data"
-    
-    # Copy audio files if they exist
-    if [ -d "$source_dir/audio" ]; then
-        cp -r "$source_dir/audio/"* "$INSTALL_DIR/audio/"
-    fi
-    
+    # Copy all files
+    rsync -av --exclude='.venv' --exclude='*.pyc' --exclude='__pycache__' "$source_dir/" "$INSTALL_DIR/"
     log_success "Project files copied"
 }
 
-# Create systemd service file
-create_service_file() {
-    log_info "Creating systemd service file..."
+# Configure Django settings for production
+configure_django_settings() {
+    log_info "Configuring Django settings for production..."
     
+    # Add production settings to config/settings.py
+    cat >> "$INSTALL_DIR/config/settings.py" <<'EOF'
+
+# Production settings added by installer
+DEBUG = False
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*']
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Static files configuration
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = '/static/'
+
+# Media files configuration
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+EOF
+
+    log_success "Django settings updated for production"
+}
+
+# Configure Django (migrations, static files, etc.)
+configure_django() {
+    log_info "Configuring Django..."
+    cd "$INSTALL_DIR"
+    source .venv/bin/activate
+
+    # Run migrations
+    log_info "Running database migrations..."
+    python manage.py migrate
+
+    # Collect static files
+    log_info "Collecting static files..."
+    python manage.py collectstatic --noinput
+    sudo chown -R $USER:$GROUP "$INSTALL_DIR/staticfiles"
+
+    # Create superuser (optional)
+    echo -n "Create Django admin superuser? (y/n): "
+    read create_superuser
+    if [[ $create_superuser =~ ^[Yy]$ ]]; then
+        python manage.py createsuperuser
+    fi
+
+    log_success "Django configured"
+}
+
+# Create systemd service file for Django web server
+create_web_service_file() {
+    log_info "Creating Django web service file..."
+
     sudo tee /etc/systemd/system/$SERVICE_NAME.service > /dev/null <<EOF
 [Unit]
-Description=Smart Alarm System with Django Web Interface
+Description=Smart Alarm Django Web Server
 After=network.target
 
 [Service]
@@ -130,7 +162,7 @@ User=$USER
 Group=$GROUP
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/.venv/bin
-ExecStart=$INSTALL_DIR/.venv/bin/gunicorn -w 2 -b 0.0.0.1:8080 config.wsgi
+ExecStart=/opt/smartalarm_web/.venv/bin/python manage.py runserver_with_worker 0.0.0.0:8080
 Restart=always
 RestartSec=10
 
@@ -138,22 +170,24 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
     
-    log_success "Systemd service file created"
+    log_success "Web service file created"
 }
 
-# Enable and start service
-enable_service() {
-    log_info "Enabling and starting service..."
+# Enable and start services
+enable_services() {
+    log_info "Enabling and starting services..."
     sudo systemctl daemon-reload
+
+    # Enable and start web service
     sudo systemctl enable $SERVICE_NAME.service
     sudo systemctl start $SERVICE_NAME.service
-    
-    # Wait a moment and check status
+
+    # Wait and check status
     sleep 3
     if sudo systemctl is-active --quiet $SERVICE_NAME.service; then
-        log_success "Service is running successfully"
+        log_success "Web service is running"
     else
-        log_error "Service failed to start. Check with: sudo systemctl status $SERVICE_NAME.service"
+        log_error "Web service failed to start. Check: sudo systemctl status $SERVICE_NAME.service"
         exit 1
     fi
 }
@@ -194,12 +228,12 @@ chromium-browser \
     --fast-start \
     --disable-default-apps \
     --no-default-browser-check \
-    --autoplay-policy=user-gesture-required \
+    --autoplay-policy=no-user-gesture-required \
     --start-maximized \
     --kiosk \
-    --app=http://localhost:5000
+    --app=http://localhost:8080
 EOF
-    
+
     chmod +x /home/$USER/start_smartalarm.sh
     log_success "Kiosk launch script created"
 }
@@ -210,10 +244,10 @@ create_autostart() {
     
     mkdir -p /home/$USER/.config/autostart
     
-    cat > /home/$USER/.config/autostart/kiosk.desktop <<EOF
+    cat > /home/$USER/.config/autostart/smartalarm.desktop <<EOF
 [Desktop Entry]
 Type=Application
-Name=Kiosk Display
+Name=Smart Alarm Display
 Exec=/home/$USER/start_smartalarm.sh
 Hidden=false
 NoDisplay=false
@@ -232,7 +266,7 @@ configure_lxde() {
     # Create or append to autostart file
     cat >> /home/$USER/.config/lxsession/LXDE-pi/autostart <<EOF
 
-# Kiosk display configuration
+# Smart Alarm display configuration
 @xset s off
 @xset -dpms
 @xset s noblank
@@ -250,10 +284,10 @@ configure_boot() {
     # Backup original config
     sudo cp /boot/config.txt /boot/config.txt.backup
     
-    # Add kiosk-specific settings
+    # Add display settings
     sudo tee -a /boot/config.txt > /dev/null <<EOF
 
-# Kiosk display configuration
+# Smart Alarm display configuration
 disable_overscan=1
 gpu_mem=128
 disable_splash=1
@@ -262,41 +296,33 @@ EOF
     log_success "Boot configuration updated"
 }
 
-# Setup automatic refresh (optional)
-setup_auto_refresh() {
-    echo -n "Do you want to enable automatic page refresh every 30 minutes? (y/n): "
-    read -r enable_refresh
-    
-    if [[ $enable_refresh =~ ^[Yy]$ ]]; then
-        log_info "Setting up automatic refresh..."
-        
-        # Add cron job for page refresh
-        (crontab -l 2>/dev/null; echo "*/30 * * * * DISPLAY=:0 xdotool key F5") | crontab -
-        
-        log_success "Automatic refresh configured"
-    fi
-}
-
 # Test the installation
 test_installation() {
     log_info "Testing installation..."
     
-    # Test service status
+    # Test web service
     if sudo systemctl is-active --quiet $SERVICE_NAME.service; then
-        log_success "Service is running"
+        log_success "Web service is running"
     else
-        log_error "Service is not running"
+        log_error "Web service is not running"
         return 1
     fi
-    
+
     # Test web server response
-    if curl -s http://localhost:5000 > /dev/null; then
+    if curl -s http://localhost:8080 > /dev/null; then
         log_success "Web server is responding"
     else
         log_error "Web server is not responding"
         return 1
     fi
     
+    # Test static files
+    if curl -s http://localhost:8080/static/alarm_app/css/style.css > /dev/null; then
+        log_success "Static files are serving correctly"
+    else
+        log_warning "Static files may not be configured correctly"
+    fi
+
     log_success "Installation test passed"
 }
 
@@ -307,29 +333,28 @@ create_uninstall_script() {
     cat > /home/$USER/uninstall_smartalarm.sh <<EOF
 #!/bin/bash
 
-# Uninstall smart alarm system
+# Uninstall Smart Alarm System
 echo "Uninstalling Smart Alarm System..."
 
-# Stop and disable service
+# Stop and disable services
 sudo systemctl stop $SERVICE_NAME.service
 sudo systemctl disable $SERVICE_NAME.service
 sudo rm /etc/systemd/system/$SERVICE_NAME.service
 sudo systemctl daemon-reload
 
 # Remove autostart entries
-rm -f /home/$USER/.config/autostart/kiosk.desktop
+rm -f /home/$USER/.config/autostart/smartalarm.desktop
 rm -f /home/$USER/start_smartalarm.sh
-
-# Remove cron job
-crontab -l | grep -v "xdotool key F5" | crontab -
 
 # Remove installation directory
 sudo rm -rf "$INSTALL_DIR"
 
 # Restore boot config
-sudo cp /boot/config.txt.backup /boot/config.txt
+if [ -f /boot/config.txt.backup ]; then
+    sudo cp /boot/config.txt.backup /boot/config.txt
+fi
 
-echo "Kiosk display system uninstalled"
+echo "Smart Alarm System uninstalled"
 echo "Note: System packages were not removed"
 EOF
     
@@ -340,8 +365,8 @@ EOF
 # Main installation function
 main() {
     echo "=========================================="
-    echo "  University Schedule Kiosk Display"
-    echo "  Raspberry Pi Installation Script"
+    echo "       Smart Alarm System"
+    echo "   Raspberry Pi Installation Script"
     echo "=========================================="
     echo
     
@@ -356,45 +381,51 @@ main() {
     
     # Application setup
     create_install_dir
-    setup_python_env
     copy_project_files
+    setup_python_env
+    configure_django_settings
+    configure_django
     
     # Service setup
-    create_service_file
-    enable_service
+    create_web_service_file
+    enable_services
     
     # Kiosk setup
     create_launch_script
     create_autostart
     configure_lxde
     configure_boot
-    setup_auto_refresh
     
     # Utility scripts
     create_uninstall_script
     
     # Final test
     test_installation
-    
+
     echo
     log_success "Installation completed successfully!"
     echo
     echo "=========================================="
     echo "  Installation Summary"
     echo "=========================================="
-    echo "Service: $SERVICE_NAME"
+    echo "Web Service: $SERVICE_NAME"
+    echo "Worker Service: ${SERVICE_NAME}-worker"
     echo "Install directory: $INSTALL_DIR"
+    echo "Web interface: http://localhost:8080"
     echo "Launch script: /home/$USER/start_smartalarm.sh"
     echo "Uninstall script: /home/$USER/uninstall_smartalarm.sh"
     echo
     echo "To complete the setup:"
     echo "1. Reboot the system: sudo reboot"
-    echo "2. The Smart Alarm System should start automatically"
+    echo "2. The Smart Alarm System will start automatically"
+    echo "3. Access admin at: http://localhost:8080/admin/"
     echo
     echo "Useful commands:"
-    echo "- Check service status: sudo systemctl status $SERVICE_NAME"
-    echo "- View service logs: sudo journalctl -u $SERVICE_NAME -f"
-    echo "- Test manually: $INSTALL_DIR/.venv/bin/python $INSTALL_DIR/app.py"
+    echo "- Web service: sudo systemctl status $SERVICE_NAME"
+    echo "- Worker service: sudo systemctl status ${SERVICE_NAME}-worker"
+    echo "- Web logs: sudo journalctl -u $SERVICE_NAME -f"
+    echo "- Worker logs: sudo journalctl -u ${SERVICE_NAME}-worker -f"
+    echo "- Reload schedules: cd $INSTALL_DIR && source .venv/bin/activate && python manage.py reload_schedules"
     echo "=========================================="
 }
 

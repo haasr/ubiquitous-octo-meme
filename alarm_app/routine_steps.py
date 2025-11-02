@@ -144,7 +144,7 @@ class News(RoutineStep):
         rss_url (str): URL of the RSS feed
         image_keywords (list, optional): Additional keywords for image search
         num_images (int): Number of images to download (default: 6)
-        tts_command (str): TTS command template (default: 'simple_google_tts -p en "{text}"')
+        tts_command (str): TTS command template (default: 'simple_google_tts en "{text}"')
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -233,7 +233,7 @@ class News(RoutineStep):
 
     def _speak_text(self, text: str):
         """Use TTS to speak the provided text."""
-        tts_command = self.config.get("tts_command", 'simple_google_tts -p en "{text}"')
+        tts_command = self.config.get("tts_command", 'simple_google_tts en "{text}"')
 
         # Format the command with the text
         command = tts_command.replace("{text}", text)
@@ -391,7 +391,7 @@ class WeatherUtil(RoutineStep):
 
     def _speak_text(self, text: str):
         """Use TTS to speak the weather forecast."""
-        tts_command = self.config.get("tts_command", 'simple_google_tts -p en "{text}"')
+        tts_command = self.config.get("tts_command", 'simple_google_tts en "{text}"')
 
         command = tts_command.replace("{text}", text)
 
@@ -460,7 +460,7 @@ class URLOpener(RoutineStep):
 
     def _speak_text(self, text: str):
         """Use TTS to speak the message."""
-        tts_command = self.config.get("tts_command", 'simple_google_tts -p en "{text}"')
+        tts_command = self.config.get("tts_command", 'simple_google_tts en "{text}"')
 
         command = tts_command.replace("{text}", text)
 
@@ -509,7 +509,7 @@ class QuoteFetcher(RoutineStep):
 
     def _speak_text(self, text: str):
         """Use TTS to speak the quote."""
-        tts_command = self.config.get("tts_command", 'simple_google_tts -p en "{text}"')
+        tts_command = self.config.get("tts_command", 'simple_google_tts en "{text}"')
 
         command = tts_command.replace("{text}", text)
 
