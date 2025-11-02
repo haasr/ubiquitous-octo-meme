@@ -1,0 +1,126 @@
+{% extends "alarm_app/base.html" %}
+
+{% block title %}Dashboard - Smart Alarm System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="hero">
+        <h1>Good {% if greeting_time == 'morning' %}Morning{% elif greeting_time == 'afternoon' %}Afternoon{% else %}Evening{% endif %}{% if user_profile %}, {{ user_profile.user_name }}{% endif %}!</h1>
+        <p style="font-size: 1.25rem; color: var(--black); opacity: 0.8;">
+            {% if active_routines_count > 0 %}
+                You have {{ active_routines_count }} active routine{{ active_routines_count|pluralize }}.
+            {% else %}
+                No active routines scheduled. Create one to get started!
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-3" style="margin-bottom: 3rem;">
+        <div class="card bg-lochmara text-white">
+            <h3>{{ total_routines }}</h3>
+            <p>Total Routines</p>
+        </div>
+        <div class="card bg-keppel text-white">
+            <h3>{{ active_routines_count }}</h3>
+            <p>Active Routines</p>
+        </div>
+        <div class="card bg-bright-sun text-black">
+            <h3>{{ total_executions }}</h3>
+            <p>Total Executions</p>
+        </div>
+    </div>
+
+    <!-- Active Routines Today -->
+    <section style="margin-bottom: 3rem;">
+        <h2 style="margin-bottom: 1.5rem;">Scheduled for Today</h2>
+        
+        {% if routines_today %}
+        <div class="grid grid-3">
+            {% for routine in routines_today %}
+            <div class="card {% cycle 'bg-lochmara' 'bg-keppel' 'bg-shocking' %} text-white">
+                <div>
+                    <h3>{{ routine.name }}</h3>
+                    <p class="card-quote" style="margin: 1rem 0;">
+                        {% if routine.time_of_day %}
+                            ⏰ Scheduled for {{ routine.time_of_day|time:"g:i A" }}
+                        {% else %}
+                            ⏰ One-time: {{ routine.scheduled_datetime|date:"g:i A" }}
+                        {% endif %}
+                    </p>
+                    <div style="margin-top: 1rem;">
+                        <span style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.9rem;">
+                            {{ routine.steps_json|length }} step{{ routine.steps_json|length|pluralize }}
+                        </span>
+                    </div>
+                </div>
+                <div style="margin-top: 1.5rem;">
+                    <a href="{% url 'alarm_app:routine_detail' routine.id %}" class="btn" style="background: white; color: var(--black);">
+                        View Details
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card" style="text-align: center; padding: 3rem;">
+            <p style="font-size: 1.25rem; color: var(--black); opacity: 0.6;">
+                No routines scheduled for today. 
+                <a href="{% url 'alarm_app:routine_list' %}" style="color: var(--lochmara);">View all routines</a>
+            </p>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Recent Activity -->
+    <section>
+        <h2 style="margin-bottom: 1.5rem;">Recent Activity</h2>
+        
+        {% if recent_logs %}
+        <div class="card">
+            {% for log in recent_logs %}
+            <div style="padding: 1rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>{{ log.routine.name }}</strong>
+                    <p style="margin: 0.25rem 0; opacity: 0.7;">
+                        {{ log.started_at|date:"M d, Y g:i A" }}
+                        {% if log.duration_seconds %}
+                            - Duration: {{ log.duration_seconds|floatformat:1 }}s
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    {% if log.status == 'completed' %}
+                        <span style="background: var(--keppel); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">
+                            ✓ Completed
+                        </span>
+                    {% elif log.status == 'failed' %}
+                        <span style="background: var(--outrageous-orange); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">
+                            ✗ Failed
+                        </span>
+                    {% else %}
+                        <span style="background: var(--bright-sun); color: var(--black); padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">
+                            ⏳ {{ log.status|title }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card" style="text-align: center; padding: 3rem;">
+            <p style="font-size: 1.25rem; color: var(--black); opacity: 0.6;">
+                No execution history yet.
+            </p>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Quick Actions -->
+    <div style="margin-top: 3rem; text-align: center;">
+        <a href="{% url 'alarm_app:routine_create' %}" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2rem;">
+            + Create New Routine
+        </a>
+    </div>
+</div>
+{% endblock %}

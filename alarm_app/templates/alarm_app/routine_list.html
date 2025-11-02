@@ -1,0 +1,157 @@
+{% extends "alarm_app/base.html" %}
+
+{% block title %}All Routines - Smart Alarm System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1>All Routines</h1>
+        <a href="{% url 'alarm_app:routine_create' %}" class="btn btn-primary">
+            + Create New Routine
+        </a>
+    </div>
+
+    <!-- Filter/Sort Options -->
+    <div class="card" style="margin-bottom: 2rem; padding: 1rem;">
+        <form method="get" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+            <div>
+                <label style="margin-right: 0.5rem; font-weight: 600;">Status:</label>
+                <select name="status" class="form-control" style="display: inline-block; width: auto; padding: 0.5rem;" onchange="this.form.submit()">
+                    <option value="">All</option>
+                    <option value="enabled" {% if request.GET.status == 'enabled' %}selected{% endif %}>Enabled</option>
+                    <option value="disabled" {% if request.GET.status == 'disabled' %}selected{% endif %}>Disabled</option>
+                </select>
+            </div>
+            <div>
+                <label style="margin-right: 0.5rem; font-weight: 600;">Type:</label>
+                <select name="schedule_type" class="form-control" style="display: inline-block; width: auto; padding: 0.5rem;" onchange="this.form.submit()">
+                    <option value="">All</option>
+                    <option value="once" {% if request.GET.schedule_type == 'once' %}selected{% endif %}>One-time</option>
+                    <option value="recurring" {% if request.GET.schedule_type == 'recurring' %}selected{% endif %}>Recurring</option>
+                </select>
+            </div>
+            {% if request.GET.status or request.GET.schedule_type %}
+            <a href="{% url 'alarm_app:routine_list' %}" class="btn btn-secondary">Clear Filters</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Routines Grid -->
+    {% if routines %}
+    <div class="grid grid-3">
+        {% for routine in routines %}
+        <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 400px;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                    <h3 style="margin: 0; flex: 1;">{{ routine.name }}</h3>
+                    {% if routine.enabled %}
+                    <span style="background: var(--keppel); color: white; padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.8rem; font-weight: 600;">
+                        ACTIVE
+                    </span>
+                    {% else %}
+                    <span style="background: #95a5a6; color: white; padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.8rem; font-weight: 600;">
+                        DISABLED
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if routine.description %}
+                <p style="color: var(--black); opacity: 0.8; margin-bottom: 1rem;">
+                    {{ routine.description|truncatewords:20 }}
+                </p>
+                {% endif %}
+
+                <div style="margin-bottom: 1rem;">
+                    <strong style="display: block; margin-bottom: 0.5rem;">Schedule:</strong>
+                    {% if routine.schedule_type == 'once' %}
+                        <p style="margin: 0;">📅 One-time: {{ routine.scheduled_datetime|date:"M d, Y g:i A" }}</p>
+                    {% else %}
+                        <p style="margin: 0;">🔁 {{ routine.time_of_day|time:"g:i A" }}</p>
+                        <p style="margin: 0.25rem 0 0 0; opacity: 0.7;">
+                            {% with days=routine.get_scheduled_days %}
+                            {% if days %}
+                                {{ days|join:", " }}
+                            {% else %}
+                                No days selected
+                            {% endif %}
+                            {% endwith %}
+                        </p>
+                    {% endif %}
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <strong style="display: block; margin-bottom: 0.5rem;">Steps:</strong>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        {% for step in routine.steps_json %}
+                        <span style="background: var(--lochmara); color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">
+                            {{ step.type }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% if routine.last_run %}
+                <div style="font-size: 0.9rem; opacity: 0.7;">
+                    <strong>Last run:</strong> {{ routine.last_run|timesince }} ago
+                </div>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                <a href="{% url 'alarm_app:routine_detail' routine.id %}" class="btn btn-primary" style="flex: 1;">
+                    View
+                </a>
+                <a href="{% url 'alarm_app:routine_edit' routine.id %}" class="btn" style="flex: 1;">
+                    Edit
+                </a>
+                {% if routine.enabled %}
+                <form method="post" action="{% url 'alarm_app:routine_toggle' routine.id %}" style="flex: 1;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" style="width: 100%; background: var(--outrageous-orange); color: white;">
+                        Disable
+                    </button>
+                </form>
+                {% else %}
+                <form method="post" action="{% url 'alarm_app:routine_toggle' routine.id %}" style="flex: 1;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" style="width: 100%; background: var(--keppel); color: white;">
+                        Enable
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 2rem;">
+        {% if page_obj.has_previous %}
+        <a href="?page=1" class="btn">First</a>
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn">Previous</a>
+        {% endif %}
+        
+        <span class="btn btn-primary">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn">Next</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}" class="btn">Last</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="card" style="text-align: center; padding: 4rem 2rem;">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">⏰</div>
+        <h2>No Routines Yet</h2>
+        <p style="font-size: 1.25rem; margin: 1.5rem 0; opacity: 0.7;">
+            Create your first routine to get started with your smart alarm system.
+        </p>
+        <a href="{% url 'alarm_app:routine_create' %}" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2rem;">
+            + Create Your First Routine
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Smart Alarm System{% endblock %}</title>
+    
+    <!-- Imported CSS from style-main.css -->
+    <link rel="stylesheet" href="{% static 'alarm_app/css/style-main.css' %}">
+    
+    <!-- Additional app-specific styles -->
+    <link rel="stylesheet" href="{% static 'alarm_app/css/style.css' %}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Header -->
+    <header style="background-color: var(--black); color: var(--white); padding: 2rem 0; margin-bottom: 3rem;">
+        <div class="container">
+            <h1 style="margin-bottom: 1rem;">⏰ Smart Alarm System</h1>
+            <nav style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <a href="{% url 'alarm_app:index' %}" class="btn {% if request.resolver_match.url_name == 'index' %}btn-primary{% endif %}">
+                    Dashboard
+                </a>
+                <a href="{% url 'alarm_app:routine_list' %}" class="btn {% if request.resolver_match.url_name == 'routine_list' %}btn-primary{% endif %}">
+                    Routines
+                </a>
+                <a href="{% url 'alarm_app:routine_create' %}" class="btn {% if request.resolver_match.url_name == 'routine_create' %}btn-primary{% endif %}">
+                    Create Routine
+                </a>
+                <a href="{% url 'alarm_app:settings' %}" class="btn {% if request.resolver_match.url_name == 'settings' %}btn-primary{% endif %}">
+                    Settings
+                </a>
+                <a href="{% url 'admin:index' %}" class="btn" target="_blank">
+                    Admin Panel
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="container">
+        {% for message in messages %}
+        <div class="card bg-{% if message.level_tag == 'success' %}keppel{% elif message.level_tag == 'error' %}outrageous-orange{% elif message.level_tag == 'warning' %}bright-sun{% else %}lochmara{% endif %}" 
+             style="padding: 1rem; margin-bottom: 1.5rem; color: var(--black);">
+            <strong>{{ message|safe }}</strong>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer style="background-color: var(--black); color: var(--white); padding: 2rem 0; margin-top: 4rem;">
+        <div class="container" style="text-align: center;">
+            <p>&copy; 2025 Smart Alarm System | Built with Django & APScheduler</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="{% static 'alarm_app/js/slideshow.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

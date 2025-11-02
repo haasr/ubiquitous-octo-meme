@@ -1,0 +1,256 @@
+{% extends "alarm_app/base.html" %}
+
+{% block title %}{{ routine.name }} - Smart Alarm System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div style="margin-bottom: 2rem;">
+        <a href="{% url 'alarm_app:routine_list' %}" style="color: var(--lochmara); text-decoration: none; font-size: 1rem;">
+            ← Back to Routines
+        </a>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="margin-bottom: 0.5rem;">{{ routine.name }}</h1>
+            {% if routine.enabled %}
+            <span style="background: var(--keppel); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600; font-size: 0.9rem;">
+                ✓ ACTIVE
+            </span>
+            {% else %}
+            <span style="background: #95a5a6; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600; font-size: 0.9rem;">
+                ○ DISABLED
+            </span>
+            {% endif %}
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{% url 'alarm_app:routine_edit' routine.id %}" class="btn btn-primary">
+                Edit Routine
+            </a>
+            {% if routine.enabled %}
+            <form method="post" action="{% url 'alarm_app:routine_toggle' routine.id %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn" style="background: var(--outrageous-orange); color: white;">
+                    Disable
+                </button>
+            </form>
+            {% else %}
+            <form method="post" action="{% url 'alarm_app:routine_toggle' routine.id %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn" style="background: var(--keppel); color: white;">
+                    Enable
+                </button>
+            </form>
+            {% endif %}
+            <form method="post" action="{% url 'alarm_app:routine_delete' routine.id %}" style="display: inline;" 
+                  onsubmit="return confirm('Are you sure you want to delete this routine? This cannot be undone.');">
+                {% csrf_token %}
+                <button type="submit" class="btn" style="background: var(--outrageous-orange); color: white;">
+                    Delete
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Info -->
+    <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+        <!-- Left Column -->
+        <div>
+            <!-- Description -->
+            {% if routine.description %}
+            <div class="card" style="margin-bottom: 2rem;">
+                <h2>Description</h2>
+                <p>{{ routine.description }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Steps -->
+            <div class="card">
+                <h2 style="margin-bottom: 1.5rem;">Routine Steps</h2>
+                {% for step in routine.steps_json %}
+                <div class="card bg-{% cycle 'lochmara' 'keppel' 'shocking' 'bright-sun' %}" 
+                     style="margin-bottom: 1rem; padding: 1.5rem;">
+                    <div style="display: flex; align-items: start; gap: 1rem;">
+                        <div style="background: rgba(255,255,255,0.2); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">
+                            {{ forloop.counter }}
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 0.5rem 0; text-transform: capitalize;">
+                                {{ step.type|title }}
+                            </h3>
+                            <div style="opacity: 0.9;">
+                                {% if step.type == 'alarm' %}
+                                    <p style="margin: 0.25rem 0;"><strong>Audio File:</strong> {{ step.config.audio_file|default:"Not specified" }}</p>
+                                    {% if step.config.duration %}
+                                    <p style="margin: 0.25rem 0;"><strong>Duration:</strong> {{ step.config.duration }} seconds</p>
+                                    {% endif %}
+                                
+                                {% elif step.type == 'news' %}
+                                    <p style="margin: 0.25rem 0;"><strong>RSS Feed:</strong> {{ step.config.rss_url|default:"Not specified" }}</p>
+                                    {% if step.config.num_images %}
+                                    <p style="margin: 0.25rem 0;"><strong>Images:</strong> {{ step.config.num_images }}</p>
+                                    {% endif %}
+                                
+                                {% elif step.type == 'weather' %}
+                                    <p style="margin: 0.25rem 0;"><strong>Location:</strong> {{ step.config.location_name|default:"Default location" }}</p>
+                                    {% if step.config.latitude and step.config.longitude %}
+                                    <p style="margin: 0.25rem 0;"><strong>Coordinates:</strong> {{ step.config.latitude }}, {{ step.config.longitude }}</p>
+                                    {% endif %}
+                                
+                                {% elif step.type == 'url_opener' %}
+                                    <p style="margin: 0.25rem 0;"><strong>URL:</strong> {{ step.config.url|default:"Not specified" }}</p>
+                                    {% if step.config.message %}
+                                    <p style="margin: 0.25rem 0;"><strong>Message:</strong> "{{ step.config.message }}"</p>
+                                    {% endif %}
+                                
+                                {% elif step.type == 'quote' %}
+                                    {% if step.config.intro_text %}
+                                    <p style="margin: 0.25rem 0;"><strong>Intro:</strong> "{{ step.config.intro_text }}"</p>
+                                    {% endif %}
+                                    <p style="margin: 0.25rem 0;">Fetches random quote from database</p>
+                                
+                                {% else %}
+                                    <p style="margin: 0.25rem 0;">Custom step type: {{ step.type }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p style="opacity: 0.7;">No steps configured.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div>
+            <!-- Schedule Info -->
+            <div class="card bg-lochmara text-white" style="margin-bottom: 2rem;">
+                <h2>Schedule</h2>
+                {% if routine.schedule_type == 'once' %}
+                    <p style="font-size: 1.25rem; margin: 0.5rem 0;">📅 One-time Execution</p>
+                    <p style="font-size: 1.5rem; font-weight: 600; margin: 0.5rem 0;">
+                        {{ routine.scheduled_datetime|date:"M d, Y" }}
+                    </p>
+                    <p style="font-size: 1.5rem; font-weight: 600; margin: 0.5rem 0;">
+                        {{ routine.scheduled_datetime|time:"g:i A" }}
+                    </p>
+                {% else %}
+                    <p style="font-size: 1.25rem; margin: 0.5rem 0;">🔁 Recurring</p>
+                    <p style="font-size: 2rem; font-weight: 700; margin: 0.5rem 0;">
+                        {{ routine.time_of_day|time:"g:i A" }}
+                    </p>
+                    <div style="margin-top: 1rem;">
+                        {% with days=routine.get_scheduled_days %}
+                        {% if days %}
+                            {% for day in days %}
+                            <span style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.9rem; display: inline-block; margin: 0.25rem;">
+                                {{ day }}
+                            </span>
+                            {% endfor %}
+                        {% else %}
+                            <p style="opacity: 0.8;">No days selected</p>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Stats -->
+            <div class="card" style="margin-bottom: 2rem;">
+                <h2>Statistics</h2>
+                <div style="margin: 1rem 0;">
+                    <p style="font-size: 1.1rem; margin: 0.5rem 0;">
+                        <strong>Total Executions:</strong> {{ routine.run_count }}
+                    </p>
+                    {% if routine.last_run %}
+                    <p style="font-size: 1.1rem; margin: 0.5rem 0;">
+                        <strong>Last Run:</strong> {{ routine.last_run|timesince }} ago
+                    </p>
+                    <p style="font-size: 0.9rem; opacity: 0.7; margin: 0.5rem 0;">
+                        {{ routine.last_run|date:"M d, Y g:i A" }}
+                    </p>
+                    {% else %}
+                    <p style="font-size: 1.1rem; margin: 0.5rem 0; opacity: 0.7;">
+                        Never executed
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Metadata -->
+            <div class="card">
+                <h3>Metadata</h3>
+                <p style="font-size: 0.9rem; opacity: 0.7; margin: 0.5rem 0;">
+                    <strong>Created:</strong><br>{{ routine.created_at|date:"M d, Y g:i A" }}
+                </p>
+                <p style="font-size: 0.9rem; opacity: 0.7; margin: 0.5rem 0;">
+                    <strong>Last Updated:</strong><br>{{ routine.updated_at|date:"M d, Y g:i A" }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execution History -->
+    <div class="card">
+        <h2 style="margin-bottom: 1.5rem;">Execution History</h2>
+        {% if logs %}
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ddd;">
+                        <th style="padding: 1rem; text-align: left;">Date & Time</th>
+                        <th style="padding: 1rem; text-align: left;">Status</th>
+                        <th style="padding: 1rem; text-align: left;">Duration</th>
+                        <th style="padding: 1rem; text-align: left;">Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 1rem;">{{ log.started_at|date:"M d, Y g:i A" }}</td>
+                        <td style="padding: 1rem;">
+                            {% if log.status == 'completed' %}
+                                <span style="background: var(--keppel); color: white; padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.85rem;">
+                                    ✓ Completed
+                                </span>
+                            {% elif log.status == 'failed' %}
+                                <span style="background: var(--outrageous-orange); color: white; padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.85rem;">
+                                    ✗ Failed
+                                </span>
+                            {% else %}
+                                <span style="background: var(--bright-sun); color: var(--black); padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.85rem;">
+                                    {{ log.status|title }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem;">
+                            {% if log.duration_seconds %}
+                                {{ log.duration_seconds|floatformat:1 }}s
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem;">
+                            {% if log.error_message %}
+                                <span style="color: var(--outrageous-orange);" title="{{ log.error_message }}">
+                                    {{ log.error_message|truncatewords:10 }}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="text-align: center; opacity: 0.7; padding: 2rem;">
+            No execution history yet.
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -6,6 +6,7 @@ performed as part of a morning routine (alarm, news, weather, etc.)
 """
 
 from abc import ABC, abstractmethod
+from .models import Quote
 import subprocess
 import time
 import os
@@ -103,7 +104,7 @@ class Alarm(RoutineStep):
         try:
             # Use aplay for audio playback
             self._process = subprocess.Popen(
-                ["aplay", audio_file],
+                ["play", audio_file],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -487,14 +488,10 @@ class QuoteFetcher(RoutineStep):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
-        self.quote = ""
+        self.quote = Quote.get_random_quote()
 
     def execute(self) -> bool:
         try:
-            # This will be replaced with database query in Django implementation
-            # For now, returns a placeholder
-            self.quote = self._get_random_quote()
-
             intro = self.config.get("intro_text", "Your quote of the day is")
             message = f"{intro}: {self.quote}"
 
@@ -506,21 +503,6 @@ class QuoteFetcher(RoutineStep):
         except Exception as e:
             print(f"Error fetching quote: {e}")
             return False
-
-    def _get_random_quote(self) -> str:
-        """
-        Get a random quote from the database.
-        This is a placeholder - will be implemented with Django ORM.
-        """
-        # Placeholder implementation
-        import random
-
-        quotes = [
-            "The only way to do great work is to love what you do. - Steve Jobs",
-            "Innovation distinguishes between a leader and a follower. - Steve Jobs",
-            "Stay hungry, stay foolish. - Steve Jobs",
-        ]
-        return random.choice(quotes)
 
     def _speak_text(self, text: str):
         """Use TTS to speak the quote."""

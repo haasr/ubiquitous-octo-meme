@@ -1,0 +1,214 @@
+{% extends "alarm_app/base.html" %}
+
+{% block title %}Settings - Smart Alarm System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 style="margin-bottom: 2rem;">Settings</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- User Profile -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">User Profile</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label for="id_user_name" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                    Your Name
+                </label>
+                {{ form.user_name }}
+                {% if form.user_name.errors %}
+                <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                    {{ form.user_name.errors.0 }}
+                </p>
+                {% endif %}
+                <p style="font-size: 0.9rem; opacity: 0.7; margin-top: 0.25rem;">
+                    Used in greetings and personalization
+                </p>
+            </div>
+        </div>
+
+        <!-- Default Location -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">Default Weather Location</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label for="id_default_location_name" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                    Location Name
+                </label>
+                {{ form.default_location_name }}
+                {% if form.default_location_name.errors %}
+                <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                    {{ form.default_location_name.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label for="id_default_latitude" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                        Latitude
+                    </label>
+                    {{ form.default_latitude }}
+                    {% if form.default_latitude.errors %}
+                    <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                        {{ form.default_latitude.errors.0 }}
+                    </p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="id_default_longitude" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                        Longitude
+                    </label>
+                    {{ form.default_longitude }}
+                    {% if form.default_longitude.errors %}
+                    <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                        {{ form.default_longitude.errors.0 }}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card bg-bright-sun" style="margin-top: 1rem; padding: 1rem;">
+                <p style="margin: 0; font-size: 0.9rem;">
+                    <strong>💡 Tip:</strong> Find coordinates at 
+                    <a href="https://www.latlong.net/" target="_blank" style="color: var(--lochmara);">latlong.net</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Text-to-Speech Configuration -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">Text-to-Speech</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label for="id_tts_command" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                    TTS Command Template
+                </label>
+                {{ form.tts_command }}
+                {% if form.tts_command.errors %}
+                <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                    {{ form.tts_command.errors.0 }}
+                </p>
+                {% endif %}
+                <p style="font-size: 0.9rem; opacity: 0.7; margin-top: 0.25rem;">
+                    Use <code>{text}</code> as a placeholder for the text to speak
+                </p>
+            </div>
+
+            <div class="card bg-lochmara text-white" style="padding: 1rem;">
+                <p style="margin: 0 0 0.5rem 0; font-weight: 600;">Common TTS Commands:</p>
+                <ul style="margin: 0; padding-left: 1.5rem;">
+                    <li style="margin: 0.25rem 0;"><code>simple_google_tts -p en "{text}"</code> (default)</li>
+                    <li style="margin: 0.25rem 0;"><code>espeak "{text}"</code></li>
+                    <li style="margin: 0.25rem 0;"><code>say "{text}"</code> (macOS)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Greeting Settings -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">Greeting Settings</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    {{ form.greeting_enabled }}
+                    <span style="font-weight: 600;">Enable personalized greeting</span>
+                </label>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label for="id_greeting_text" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                    Greeting Template
+                </label>
+                {{ form.greeting_text }}
+                {% if form.greeting_text.errors %}
+                <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                    {{ form.greeting_text.errors.0 }}
+                </p>
+                {% endif %}
+                <p style="font-size: 0.9rem; opacity: 0.7; margin-top: 0.25rem;">
+                    Use <code>{name}</code> as a placeholder for your name
+                </p>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+            <a href="{% url 'alarm_app:index' %}" class="btn">Cancel</a>
+            <button type="submit" class="btn btn-primary" style="padding: 1rem 2rem;">
+                Save Settings
+            </button>
+        </div>
+    </form>
+
+    <!-- Data Management -->
+    <div class="card" style="margin-top: 3rem;">
+        <h2 style="margin-bottom: 1.5rem;">Data Management</h2>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div class="card bg-lochmara text-white">
+                <h3>Quotes</h3>
+                <p class="card-quote">{{ quote_count }} quote{{ quote_count|pluralize }}</p>
+                <a href="{% url 'admin:alarm_app_quote_changelist' %}" class="btn" style="background: white; color: var(--black);">
+                    Manage Quotes
+                </a>
+            </div>
+
+            <div class="card bg-keppel text-white">
+                <h3>News Sources</h3>
+                <p class="card-quote">{{ news_source_count }} source{{ news_source_count|pluralize }}</p>
+                <a href="{% url 'admin:alarm_app_newssource_changelist' %}" class="btn" style="background: white; color: var(--black);">
+                    Manage Sources
+                </a>
+            </div>
+
+            <div class="card bg-shocking text-white">
+                <h3>Locations</h3>
+                <p class="card-quote">{{ location_count }} location{{ location_count|pluralize }}</p>
+                <a href="{% url 'admin:alarm_app_weatherlocation_changelist' %}" class="btn" style="background: white; color: var(--black);">
+                    Manage Locations
+                </a>
+            </div>
+
+            <div class="card bg-bright-sun text-black">
+                <h3>Audio Files</h3>
+                <p class="card-quote">{{ audio_count }} file{{ audio_count|pluralize }}</p>
+                <a href="{% url 'admin:alarm_app_audiofile_changelist' %}" class="btn" style="background: var(--black); color: white;">
+                    Manage Audio
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Info -->
+    <div class="card" style="margin-top: 2rem;">
+        <h2 style="margin-bottom: 1.5rem;">System Information</h2>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+            <div>
+                <p style="font-weight: 600; margin-bottom: 0.25rem;">Scheduler Status</p>
+                <p style="font-size: 1.25rem; margin: 0;">
+                    {% if scheduler_running %}
+                        <span style="color: var(--keppel);">● Running</span>
+                    {% else %}
+                        <span style="color: var(--outrageous-orange);">● Stopped</span>
+                    {% endif %}
+                </p>
+            </div>
+            
+            <div>
+                <p style="font-weight: 600; margin-bottom: 0.25rem;">Scheduled Jobs</p>
+                <p style="font-size: 1.25rem; margin: 0;">{{ scheduled_jobs_count }}</p>
+            </div>
+            
+            <div>
+                <p style="font-weight: 600; margin-bottom: 0.25rem;">Total Executions</p>
+                <p style="font-size: 1.25rem; margin: 0;">{{ total_executions }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

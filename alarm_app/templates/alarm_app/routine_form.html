@@ -1,0 +1,359 @@
+{% extends "alarm_app/base.html" %}
+
+{% block title %}{% if routine %}Edit{% else %}Create{% endif %} Routine - Smart Alarm System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="margin-bottom: 2rem;">
+        <a href="{% if routine %}{% url 'alarm_app:routine_detail' routine.id %}{% else %}{% url 'alarm_app:routine_list' %}{% endif %}" 
+           style="color: var(--lochmara); text-decoration: none; font-size: 1rem;">
+            ← Back
+        </a>
+    </div>
+
+    <h1 style="margin-bottom: 2rem;">{% if routine %}Edit{% else %}Create New{% endif %} Routine</h1>
+
+    <form method="post" id="routine-form">
+        {% csrf_token %}
+        
+        <!-- Basic Information -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">Basic Information</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label for="id_name" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                    Routine Name *
+                </label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                    {{ form.name.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label for="id_description" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                    Description
+                </label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                    {{ form.description.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    {{ form.enabled }}
+                    <span style="font-weight: 600;">Enable this routine</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Schedule Configuration -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">Schedule</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                    Schedule Type *
+                </label>
+                <div style="display: flex; gap: 2rem;">
+                    {% for value, label in form.schedule_type.field.choices %}
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="radio" name="schedule_type" value="{{ value }}" 
+                               {% if form.schedule_type.value == value %}checked{% endif %}
+                               onchange="toggleScheduleFields()">
+                        <span>{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- One-time Schedule Fields -->
+            <div id="onetime-fields" style="display: none; margin-bottom: 1.5rem;">
+                <label for="id_scheduled_datetime" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                    Scheduled Date & Time
+                </label>
+                {{ form.scheduled_datetime }}
+                {% if form.scheduled_datetime.errors %}
+                <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                    {{ form.scheduled_datetime.errors.0 }}
+                </p>
+                {% endif %}
+            </div>
+
+            <!-- Recurring Schedule Fields -->
+            <div id="recurring-fields" style="display: none;">
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="id_time_of_day" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+                        Time of Day
+                    </label>
+                    {{ form.time_of_day }}
+                    {% if form.time_of_day.errors %}
+                    <p style="color: var(--outrageous-orange); font-size: 0.9rem; margin-top: 0.25rem;">
+                        {{ form.time_of_day.errors.0 }}
+                    </p>
+                    {% endif %}
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.75rem;">
+                        Days of Week
+                    </label>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
+                        {% for field in form %}
+                            {% if field.name in 'monday,tuesday,wednesday,thursday,friday,saturday,sunday' %}
+                            <label class="card" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.75rem 1rem; margin: 0; transition: background-color 0.2s;">
+                                {{ field }}
+                                <span style="font-weight: 600;">{{ field.label }}</span>
+                            </label>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Steps Configuration -->
+        <div class="card" style="margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0;">Routine Steps</h2>
+                <button type="button" onclick="addStep()" class="btn btn-primary">
+                    + Add Step
+                </button>
+            </div>
+
+            <div id="steps-container">
+                <!-- Steps will be added here dynamically -->
+            </div>
+
+            <input type="hidden" name="steps_json" id="steps-json-input" value="">
+        </div>
+
+        <!-- Submit Buttons -->
+        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+            <a href="{% if routine %}{% url 'alarm_app:routine_detail' routine.id %}{% else %}{% url 'alarm_app:routine_list' %}{% endif %}" 
+               class="btn">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding: 1rem 2rem;">
+                {% if routine %}Update{% else %}Create{% endif %} Routine
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Step Template (Hidden) -->
+<template id="step-template">
+    <div class="card bg-lochmara text-white step-item" style="margin-bottom: 1rem; padding: 1.5rem;" data-step-index="">
+        <div style="display: flex; justify-content: between; align-items: start; gap: 1rem; margin-bottom: 1rem;">
+            <div style="background: rgba(255,255,255,0.2); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">
+                <span class="step-number"></span>
+            </div>
+            <div style="flex: 1;">
+                <select class="step-type" style="width: 100%; padding: 0.5rem; border-radius: 5px; border: none; font-size: 1rem;" onchange="updateStepConfig(this)">
+                    <option value="">Select Step Type...</option>
+                    <option value="alarm">Alarm</option>
+                    <option value="news">News</option>
+                    <option value="weather">Weather</option>
+                    <option value="quote">Quote</option>
+                    <option value="url_opener">URL Opener</option>
+                </select>
+            </div>
+            <button type="button" onclick="removeStep(this)" class="btn" style="background: var(--outrageous-orange); color: white; padding: 0.5rem 1rem;">
+                Remove
+            </button>
+        </div>
+        <div class="step-config" style="margin-top: 1rem;">
+            <!-- Configuration fields will be added here -->
+        </div>
+    </div>
+</template>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let stepIndex = 0;
+let existingSteps = {{ form.steps_json.value|default:"[]"|safe }};
+
+// Initialize schedule field visibility
+function toggleScheduleFields() {
+    const scheduleType = document.querySelector('input[name="schedule_type"]:checked').value;
+    document.getElementById('onetime-fields').style.display = scheduleType === 'once' ? 'block' : 'none';
+    document.getElementById('recurring-fields').style.display = scheduleType === 'recurring' ? 'block' : 'none';
+}
+
+// Add a new step
+function addStep(stepData = null) {
+    const template = document.getElementById('step-template');
+    const container = document.getElementById('steps-container');
+    const clone = template.content.cloneNode(true);
+    
+    const stepItem = clone.querySelector('.step-item');
+    stepItem.dataset.stepIndex = stepIndex;
+    
+    const stepNumber = clone.querySelector('.step-number');
+    stepNumber.textContent = stepIndex + 1;
+    
+    if (stepData) {
+        const stepType = clone.querySelector('.step-type');
+        stepType.value = stepData.type;
+        setTimeout(() => {
+            updateStepConfig(stepType, stepData.config);
+        }, 0);
+    }
+    
+    container.appendChild(clone);
+    stepIndex++;
+}
+
+// Remove a step
+function removeStep(button) {
+    button.closest('.step-item').remove();
+    renumberSteps();
+}
+
+// Renumber steps after removal
+function renumberSteps() {
+    const steps = document.querySelectorAll('.step-item');
+    steps.forEach((step, index) => {
+        step.querySelector('.step-number').textContent = index + 1;
+        step.dataset.stepIndex = index;
+    });
+}
+
+// Update step configuration based on type
+function updateStepConfig(select, existingConfig = {}) {
+    const stepItem = select.closest('.step-item');
+    const configDiv = stepItem.querySelector('.step-config');
+    const stepType = select.value;
+    
+    if (!stepType) {
+        configDiv.innerHTML = '';
+        return;
+    }
+    
+    let configHTML = '';
+    
+    switch(stepType) {
+        case 'alarm':
+            configHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem;">Audio File Path:</label>
+                    <input type="text" class="config-audio_file" value="${existingConfig.audio_file || ''}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem;">Duration (seconds, optional):</label>
+                    <input type="number" class="config-duration" value="${existingConfig.duration || ''}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+            `;
+            break;
+        case 'news':
+            configHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem;">RSS Feed URL:</label>
+                    <input type="text" class="config-rss_url" value="${existingConfig.rss_url || ''}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem;">Number of Images:</label>
+                    <input type="number" class="config-num_images" value="${existingConfig.num_images || 6}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+            `;
+            break;
+        case 'weather':
+            configHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem;">Location Name:</label>
+                    <input type="text" class="config-location_name" value="${existingConfig.location_name || ''}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem;">Latitude:</label>
+                    <input type="text" class="config-latitude" value="${existingConfig.latitude || ''}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem;">Longitude:</label>
+                    <input type="text" class="config-longitude" value="${existingConfig.longitude || ''}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+            `;
+            break;
+        case 'quote':
+            configHTML = `
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem;">Intro Text (optional):</label>
+                    <input type="text" class="config-intro_text" value="${existingConfig.intro_text || 'Your quote of the day is'}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+            `;
+            break;
+        case 'url_opener':
+            configHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem;">URL:</label>
+                    <input type="text" class="config-url" value="${existingConfig.url || ''}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem;">Message (optional):</label>
+                    <input type="text" class="config-message" value="${existingConfig.message || ''}" 
+                           style="width: 100%; padding: 0.5rem; border-radius: 5px; border: 1px solid #ddd;">
+                </div>
+            `;
+            break;
+    }
+    
+    configDiv.innerHTML = configHTML;
+}
+
+// Collect all steps data before form submission
+document.getElementById('routine-form').addEventListener('submit', function(e) {
+    const steps = [];
+    const stepItems = document.querySelectorAll('.step-item');
+    
+    stepItems.forEach(item => {
+        const stepType = item.querySelector('.step-type').value;
+        if (!stepType) return;
+        
+        const config = {};
+        const configInputs = item.querySelectorAll('[class^="config-"]');
+        
+        configInputs.forEach(input => {
+            const key = input.className.split('config-')[1];
+            const value = input.value;
+            if (value) {
+                config[key] = input.type === 'number' ? parseInt(value) : value;
+            }
+        });
+        
+        steps.push({
+            type: stepType,
+            config: config
+        });
+    });
+    
+    document.getElementById('steps-json-input').value = JSON.stringify(steps);
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    toggleScheduleFields();
+    
+    // Load existing steps if editing
+    if (existingSteps && existingSteps.length > 0) {
+        existingSteps.forEach(step => {
+            addStep(step);
+        });
+    }
+});
+</script>
+{% endblock %}
