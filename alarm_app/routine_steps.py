@@ -6,7 +6,6 @@ performed as part of a morning routine (alarm, news, weather, etc.)
 """
 
 from abc import ABC, abstractmethod
-from .models import Quote
 import subprocess
 import time
 import os
@@ -488,12 +487,16 @@ class QuoteFetcher(RoutineStep):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
-        self.quote = Quote.get_random_quote()
 
     def execute(self) -> bool:
         try:
+            from .models import Quote
+            self.quote = Quote.get_random_quote()
             intro = self.config.get("intro_text", "Your quote of the day is")
-            message = f"{intro}: {self.quote.text} - {self.quote.author}"
+            if self.quote.author:
+                message = f"{intro}: {self.quote.text} - {self.quote.author}"
+            else:
+                message = f"{intro}: {self.quote.text}"
 
             # Speak the quote
             self._speak_text(message)
