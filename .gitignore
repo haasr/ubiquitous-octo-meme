@@ -1,0 +1,6 @@
+*pyc*
+*sqlite*
+*.db
+*venv
+.venv
+
